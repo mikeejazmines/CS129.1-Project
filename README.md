@@ -46,7 +46,7 @@ Note: Each like and each retweet of a tweet may also be recorded to see how many
 ## Docker Method
 The complete code can be found in the dockerMethod.txt file.
 
-### start mongo and create a network
+### Start mongo and create a network
 ```
 docker pull mongo
 docker network create pizza
