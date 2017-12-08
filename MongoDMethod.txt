@@ -1,0 +1,91 @@
+// Create a folder for sharding, as well as subfolders for the config server and shard nodes
+
+mkdir sharding
+cd sharding
+mkdir config1 config2 node2 node1
+
+//Create a Config Server Replica set
+
+// Start each member of the Config Server Replica Set, run each line on a different terminal
+mongod --configsvr --replSet config --dbpath config1 --bind_ip localhost --port 27013
+
+mongod --configsvr --replSet config --dbpath config2 --bind_ip localhost --port 27014
+
+// Connect a mongo shell to one of the config servers on a different terminal
+mongo --host localhost --port 27014
+
+// Initiate the Replica Set in the mongo shell
+rs.initiate(
+  {
+    _id : "config",
+    members: [
+      { _id : 1, host : "127.0.0.1:27013" }
+    ]
+  }
+  )
+  
+  // Add a Secondary in the mongo shell
+rs.add("127.0.0.1:27013")
+
+// Importing data
+mongoimport --db pizza --collection like --type json --file /data/seeds/like2016.json --jsonArray
+
+mongoimport --db pizza --collection like --type json --file /data/seeds/like2017.json --jsonArray
+
+mongoimport --db pizza --collection dislike --type json --file /data/seeds/dislike2016.json --jsonArray
+
+mongoimport --db pizza --collection dislike --type json --file /data/seeds/dislike2017.json --jsonArray
+
+mongoimport --db pizza --collection dislike --type json --file /data/seeds/donot2017.json --jsonArray
+
+mongoimport --db pizza --collection dislike --type json --file /data/seeds/2016donot.json --jsonArray
+
+// Create the Shard Replica Sets
+
+// Start each member of the Shard Replica Set, run each line on a different terminal
+mongod --shardsvr --replSet shard1 --dbpath node1 --bind_ip localhost --port 27015
+
+mongod --shardsvr --replSet shard2 --dbpath node2 --bind_ip localhost --port 27016
+
+// Connect a mongo shell to a member of the shard replica set on a different terminal
+mongo --host localhost --port 27016
+
+// Initiate the shard replica set in the mongo shell
+rs.initiate(
+  {
+    _id : 'shard',
+    members: [
+      { _id : 1, host : "localhost:27016" }
+    ]
+  }
+  )
+
+// Add a Secondary in the mongo shell
+  rs.add("localhost:27015")
+  
+//Connect a mongos to the sharded cluster on a different terminal
+mongos --configdb config/127.0.0.1:27013,127.0.0.1:27014 --bind_ip localhost --port 27010
+
+// Connect a mongo shell to the mongos on a different terminal
+mongo --host localhost --port 27010
+
+// On the mongo shell, add shards to the cluster
+sh.addShard( "shard/localhost:27015")
+sh.addShard( "shard/localhost:27016")
+
+//Enable sharding for the database -- pizza
+sh.enableSharding("pizza")
+
+// log in to the database
+use pineapplepizza
+
+// Create a collection -- pineapplepizza
+db.createCollection('pineapplepizza')
+
+// Create an Index for the collection
+db.pineapplepizza.createIndex({id:1}, {unique: true})
+
+// Shard the collection
+sh.shardCollection("pizza.pineapplepizza", { _id : "hashed" } )
+
+//NOTE: This was done using Mongodb 3.4, where having replicates of the sharded nodes was necessary. Therefore, the sharding is not functioning. 
